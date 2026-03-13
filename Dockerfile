@@ -1,6 +1,9 @@
 FROM alpine:latest
 
-# Install system dependencies (screen is already included)
+# Allow a GitHub token to be passed as a build argument (optional)
+ARG GITHUB_TOKEN
+
+# Install system dependencies
 RUN apk add --no-cache \
     bash \
     git \
@@ -20,8 +23,14 @@ RUN ssh-keygen -A && \
 # Create working directories
 RUN mkdir -p /app /bot
 
-# Clone the bot repository during build
-RUN git clone https://github.com/sdrelay/Relay.git /bot
+# Clone the bot repository (use token if provided)
+RUN if [ -n "$GITHUB_TOKEN" ]; then \
+        echo "Using GITHUB_TOKEN for authentication" && \
+        git clone https://${GITHUB_TOKEN}@github.com/sdrelay/Relay.git /bot; \
+    else \
+        echo "No GITHUB_TOKEN provided, attempting public clone" && \
+        git clone https://github.com/sdrelay/Relay.git /bot; \
+    fi
 
 # Install bot dependencies
 WORKDIR /bot
