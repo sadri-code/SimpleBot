@@ -7,31 +7,15 @@ log() {
 
 log "Starting services..."
 
-# ==================== CLONE/UPDATE BOT REPOSITORY ====================
-if [ -n "$GITHUB_TOKEN" ]; then
-    log "GITHUB_TOKEN detected, checking bot repository..."
-
-    if [ -d "/bot/.git" ]; then
-        log "Existing bot repository found, pulling updates..."
-        cd /bot
-        git pull
-        cd /
-    else
-        log "Cloning bot repository for the first time..."
-        git clone https://onerelay:${GITHUB_TOKEN}@github.com/onerelay/Relay.git /bot
-    fi
-
-    # Install/update npm dependencies
-    if [ -f "/bot/package.json" ]; then
-        log "Installing/updating npm dependencies..."
-        cd /bot
-        npm install
-        cd /
-    fi
-
-    log "Bot repository is up to date."
-else
-    log "GITHUB_TOKEN not set – skipping bot repository sync."
+# ==================== OPTIONAL RUNTIME UPDATE ====================
+# If you want to pull the latest bot code on every start, set GITHUB_TOKEN.
+if [ -n "$GITHUB_TOKEN" ] && [ -d "/bot/.git" ]; then
+    log "GITHUB_TOKEN detected, updating bot repository..."
+    cd /bot
+    git pull
+    npm install
+    cd /
+    log "Bot repository updated."
 fi
 
 # ==================== SSH DAEMON ====================
@@ -42,16 +26,6 @@ if [ -f /usr/sbin/sshd ]; then
     log "SSH daemon started with PID $SSHD_PID"
 fi
 
-# ==================== CLOUDFLARED TUNNEL ====================
-if [ -n "$CLOUDFLARED_TOKEN" ]; then
-    log "Starting cloudflared tunnel..."
-    cloudflared tunnel --no-autoupdate run --token "$CLOUDFLARED_TOKEN" &
-    CLOUDFLARED_PID=$!
-    log "cloudflared started with PID $CLOUDFLARED_PID"
-else
-    log "CLOUDFLARED_TOKEN not set – skipping tunnel"
-fi
-
 # ==================== WEB SERVER (SSH TERMINAL) ====================
 log "Starting web server..."
 cd /app
@@ -59,9 +33,31 @@ node web.js &
 WEB_PID=$!
 log "Web server started with PID $WEB_PID"
 
-log "All services started. Bot is not running. Use SSH to start it manually."
-log "To start the bot: cd /bot && node index.js (or npm start)"
+# ==================== BOT INSIDE SCREEN (with auto‑restart) ====================
+log "Starting bot inside a screen session (auto‑restart enabled)..."
+# Create a detached screen session named "bot" that runs a restart loop
+screen -dmS bot bash -c '
+    cd /bot
+    while true; do
+        echo "[$(date)] Starting bot..."
+        # Use npm start if defined, otherwise node index.js
+        if npm run | grep -q start; then
+            npm start
+        else
+            node index.js
+        fi
+        echo "[$(date)] Bot stopped. Restarting in 5 seconds..."
+        sleep 5
+    done
+'
+log "Bot screen session created. To attach: screen -r bot (via SSH)"
 
-# Wait for any process to exit (so the container stays alive)
+log "All services started. Container will now wait for background processes."
+
+# ==================== WAIT FOR ANY PROCESS TO EXIT ====================
+# Wait for any background job to finish. The screen session runs independently,
+# so the container stays alive as long as at least one background process (SSH, web, etc.) is running.
 wait -n
+
+# If we reach here, a service has exited. Render will restart the container.
 exit $?
