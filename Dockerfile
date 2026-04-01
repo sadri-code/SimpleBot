@@ -1,7 +1,6 @@
 FROM alpine:latest
 
 ARG GITHUB_TOKEN
-ARG GEMINI_API_KEY
 
 RUN apk add --no-cache \
     bash git curl openssh nodejs npm screen nano
