@@ -59,14 +59,16 @@ screen -dmS bot bash -c '
 '
 log "Bot screen session created."
 
-# ==================== SERVE AUTOMATOR STATIC FILES ====================
-if [ -d "/automator/dist" ]; then
-    log "Starting automator static file server on port 3000..."
-    serve -s /automator/dist -l 3000 &
+# ==================== RUN AUTOMATOR BACKEND ====================
+if [ -d "/automator" ]; then
+    log "Starting automator backend on port 3000..."
+    cd /automator
+    NODE_ENV=production tsx server.ts &
     AUTOMATOR_PID=$!
-    log "Automator served with PID $AUTOMATOR_PID on port 3000"
+    cd /
+    log "Automator backend started with PID $AUTOMATOR_PID"
 else
-    log "Automator dist folder not found; skipping automator."
+    log "Automator directory not found; skipping automator."
 fi
 
 log "All services started. Container will now wait for background processes."
