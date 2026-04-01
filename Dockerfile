@@ -10,7 +10,7 @@ RUN ssh-keygen -A && \
     sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
 
-RUN mkdir -p /app /bot /automator
+RUN mkdir -p /bot /automator
 
 # Clone and install bot
 RUN if [ -n "$GITHUB_TOKEN" ]; then \
@@ -28,17 +28,12 @@ RUN if [ -n "$GITHUB_TOKEN" ]; then \
     else \
         git clone https://github.com/sdrelay/automator.git /automator; \
     fi
-    
+
 WORKDIR /automator
 RUN npm install && npm run build
 RUN npm install -g tsx
 
-# Copy your web app and its dependencies
-WORKDIR /
-COPY app/ /app
-COPY package*.json ./
-RUN npm install
-
+# Copy startup script
 COPY start_services.sh /start_services.sh
 RUN chmod +x /start_services.sh
 
