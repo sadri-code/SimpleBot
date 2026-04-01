@@ -15,6 +15,11 @@ const AUTOMATOR_URL = 'http://localhost:3000';
 app.use(express.json({ limit: '10mb' }));
 
 // ==================== Gemini API Proxy ====================
+
+app.get('/api/gemini/status', (req, res) => {
+  res.json({ geminiKeySet: !!process.env.GEMINI_API_KEY });
+});
+
 // This endpoint forwards requests to Gemini, keeping the API key secret on the server.
 // It must be placed BEFORE the catch-all proxy.
 app.post('/api/gemini', async (req, res) => {
