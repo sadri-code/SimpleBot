@@ -23,7 +23,7 @@ if [ -n "$GITHUB_TOKEN" ] && [ -d "/automator/.git" ]; then
     cd /automator
     git pull
     npm install
-    npm run build   # rebuild if source changed
+    npm run build
     cd /
 fi
 
@@ -34,13 +34,6 @@ if [ -f /usr/sbin/sshd ]; then
     SSHD_PID=$!
     log "SSH daemon started with PID $SSHD_PID"
 fi
-
-# ==================== WEB SERVER (SSH TERMINAL) ====================
-log "Starting web server..."
-cd /app
-node web.js &
-WEB_PID=$!
-log "Web server started with PID $WEB_PID"
 
 # ==================== BOT INSIDE SCREEN ====================
 log "Starting bot inside a screen session (auto‑restart enabled)..."
@@ -59,21 +52,21 @@ screen -dmS bot bash -c '
 '
 log "Bot screen session created."
 
-# ==================== RUN AUTOMATOR BACKEND ====================
+# ==================== RUN AUTOMATOR BACKEND ON PORT 10000 ====================
 if [ -d "/automator" ]; then
-    log "Starting automator backend on port 3000..."
+    log "Starting automator backend on port 10000..."
     cd /automator
-    NODE_ENV=production tsx server.ts &
+    NODE_ENV=production PORT=10000 tsx server.ts &
     AUTOMATOR_PID=$!
     cd /
     log "Automator backend started with PID $AUTOMATOR_PID"
 
-    # Wait a few seconds and check if it's listening
+    # Check if it's listening
     sleep 5
-    if netstat -tulpn 2>/dev/null | grep -q ":3000.*LISTEN"; then
-        log "✅ Automator backend is listening on port 3000"
+    if netstat -tulpn 2>/dev/null | grep -q ":10000.*LISTEN"; then
+        log "✅ Automator backend is listening on port 10000"
     else
-        log "❌ Automator backend is NOT listening on port 3000"
+        log "❌ Automator backend is NOT listening on port 10000"
     fi
 fi
 
