@@ -31,12 +31,7 @@ RUN if [ -n "$GITHUB_TOKEN" ]; then \
     fi
     
 WORKDIR /automator
-RUN npm install && \
-    if [ -n "$GEMINI_API_KEY" ]; then \
-        VITE_GEMINI_API_KEY=$GEMINI_API_KEY npm run build; \
-    else \
-        npm run build; \
-    fi
+RUN npm install && npm run build
 
 # Install a global static file server
 RUN npm install -g serve
