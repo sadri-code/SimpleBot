@@ -31,7 +31,7 @@ RUN if [ -n "$GITHUB_TOKEN" ]; then \
 
 WORKDIR /automator
 RUN npm install && \
-    npm install xterm xterm-addon-fit --save && \
+    npm install xterm xterm-addon-fit ssh2 --save && \
     npm run build
 RUN npm install -g tsx
 
