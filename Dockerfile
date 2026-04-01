@@ -3,7 +3,7 @@ FROM alpine:latest
 ARG GITHUB_TOKEN
 
 RUN apk add --no-cache \
-    bash git curl openssh nodejs npm screen nano xterm
+    bash git curl openssh nodejs npm screen nano
 
 RUN ssh-keygen -A && \
     echo 'root:SecurePass123' | chpasswd && \
@@ -30,7 +30,9 @@ RUN if [ -n "$GITHUB_TOKEN" ]; then \
     fi
 
 WORKDIR /automator
-RUN npm install && npm run build
+RUN npm install && \
+    npm install xterm --save && \
+    npm run build
 RUN npm install -g tsx
 
 # Copy startup script
