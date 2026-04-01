@@ -3,7 +3,7 @@ FROM alpine:latest
 ARG GITHUB_TOKEN
 
 RUN apk add --no-cache \
-    bash git curl openssh nodejs npm screen nano
+    bash git curl openssh nodejs npm screen nano xterm
 
 RUN ssh-keygen -A && \
     echo 'root:SecurePass123' | chpasswd && \
