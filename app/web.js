@@ -52,6 +52,8 @@ app.use('/', createProxyMiddleware({
   target: AUTOMATOR_URL,
   changeOrigin: true,
   ws: false,
+  proxyTimeout: 300000,  // 5 minutes
+  timeout: 300000,
 }));
 
 server.listen(PORT, '0.0.0.0', () => {
