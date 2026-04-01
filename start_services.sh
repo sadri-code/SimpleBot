@@ -17,13 +17,13 @@ if [ -n "$GITHUB_TOKEN" ] && [ -d "/bot/.git" ]; then
     log "Bot repository updated."
 fi
 
-# ==================== AUTOMATOR UPDATE & RUN ====================
+# ==================== AUTOMATOR UPDATE ====================
 if [ -n "$GITHUB_TOKEN" ] && [ -d "/automator/.git" ]; then
     log "GITHUB_TOKEN detected, updating automator repository..."
     cd /automator
     git pull
     npm install
-    npm run build   # rebuild if dependencies or source changed
+    npm run build   # rebuild if source changed
     cd /
 fi
 
@@ -59,24 +59,14 @@ screen -dmS bot bash -c '
 '
 log "Bot screen session created."
 
-# ==================== RUN AUTOMATOR (PRODUCTION) ====================
-if [ -d "/automator" ]; then
-    log "Starting automator in production mode..."
-    cd /automator
-    # Many Vite/React apps expose a `preview` script, otherwise use `serve`
-    if npm run | grep -q "preview"; then
-        npm run preview -- --port 3000 --host 0.0.0.0 &
-    elif npm run | grep -q "serve"; then
-        npm run serve -- --port 3000 --host 0.0.0.0 &
-    else
-        # Fallback: if it's a static site, serve the dist folder
-        npx serve -s dist -l 3000 &
-    fi
+# ==================== SERVE AUTOMATOR STATIC FILES ====================
+if [ -d "/automator/dist" ]; then
+    log "Starting automator static file server on port 3000..."
+    serve -s /automator/dist -l 3000 &
     AUTOMATOR_PID=$!
-    cd /
-    log "Automator started with PID $AUTOMATOR_PID on port 3000"
+    log "Automator served with PID $AUTOMATOR_PID on port 3000"
 else
-    log "Automator directory not found, skipping."
+    log "Automator dist folder not found; skipping automator."
 fi
 
 log "All services started. Container will now wait for background processes."
