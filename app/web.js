@@ -14,6 +14,58 @@ const AUTOMATOR_URL = 'http://localhost:3000';
 // Enable JSON body parsing (needed for Gemini proxy)
 app.use(express.json({ limit: '10mb' }));
 
+// ==================== Automator API Endpoints ====================
+
+// GET /api/status
+app.get('/api/status', (req, res) => {
+  // Return current status – you may need to fetch this from the bot
+  res.json({
+    status: {
+      lastCheck: null,
+      lastSuccess: null,
+      remainingSeconds: 3600,
+      isWorking: false,
+      nextCheck: null,
+      error: null
+    },
+    config: {
+      cookieString: '',
+      serverId: '',
+      checkIntervalMin: 28,
+      randomJitterMin: 2
+    },
+    logs: [], // empty array or real logs
+    geminiKeySet: !!process.env.GEMINI_API_KEY
+  });
+});
+
+// POST /api/config
+app.post('/api/config', (req, res) => {
+  const config = req.body;
+  // Save config somewhere (file, memory, or pass to bot)
+  console.log('Received config:', config);
+  res.json({ success: true });
+});
+
+// GET /api/captcha/pending
+app.get('/api/captcha/pending', (req, res) => {
+  // Return any pending CAPTCHA if exists
+  res.json(null); // or { id, image }
+});
+
+// POST /api/captcha/solve
+app.post('/api/captcha/solve', (req, res) => {
+  const { id, solution } = req.body;
+  console.log(`CAPTCHA ${id} solved with: ${solution}`);
+  res.json({ success: true });
+});
+
+// POST /api/logs/clear
+app.post('/api/logs/clear', (req, res) => {
+  // Clear logs
+  res.json({ success: true });
+});
+
 // ==================== Gemini API Proxy ====================
 
 app.get('/api/gemini/status', (req, res) => {
