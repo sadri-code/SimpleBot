@@ -17,7 +17,7 @@ app.get('/ssh', (req, res) => {
 
 // Health check endpoints (for Render and cron-job.org)
 app.get('/health', (req, res) => res.send('OK'));
-app.get('/', (req, res) => res.send('Web server is running. Bot not started.'));
+app.use('/', createProxyMiddleware({ target: AUTOMATOR_URL, changeOrigin: true, ws: true }));
 
 // Start server
 server.listen(PORT, '0.0.0.0', () => {
