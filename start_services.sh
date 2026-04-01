@@ -67,8 +67,14 @@ if [ -d "/automator" ]; then
     AUTOMATOR_PID=$!
     cd /
     log "Automator backend started with PID $AUTOMATOR_PID"
-else
-    log "Automator directory not found; skipping automator."
+
+    # Wait a few seconds and check if it's listening
+    sleep 5
+    if netstat -tulpn 2>/dev/null | grep -q ":3000.*LISTEN"; then
+        log "✅ Automator backend is listening on port 3000"
+    else
+        log "❌ Automator backend is NOT listening on port 3000"
+    fi
 fi
 
 log "All services started. Container will now wait for background processes."
