@@ -1,54 +1,45 @@
 FROM alpine:latest
 
-# Allow a GitHub token to be passed as a build argument (optional)
 ARG GITHUB_TOKEN
 
-# Install system dependencies
 RUN apk add --no-cache \
-    bash \
-    git \
-    curl \
-    openssh \
-    nodejs \
-    npm \
-    screen \
-    nano
+    bash git curl openssh nodejs npm screen nano
 
-# Configure SSH
 RUN ssh-keygen -A && \
     echo 'root:SecurePass123' | chpasswd && \
     sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
 
-# Create working directories
-RUN mkdir -p /app /bot
+RUN mkdir -p /app /bot /automator
 
-# Clone the bot repository (use token if provided)
+# Clone and install bot
 RUN if [ -n "$GITHUB_TOKEN" ]; then \
-        echo "Using GITHUB_TOKEN for authentication" && \
         git clone https://${GITHUB_TOKEN}@github.com/sdrelay/Relay.git /bot; \
     else \
-        echo "No GITHUB_TOKEN provided, attempting public clone" && \
         git clone https://github.com/sdrelay/Relay.git /bot; \
     fi
-
-# Install bot dependencies
 WORKDIR /bot
 RUN npm install
 
-# Copy your web application (if any)
+# Clone, install, and BUILD automator
+WORKDIR /
+RUN if [ -n "$GITHUB_TOKEN" ]; then \
+        git clone https://${GITHUB_TOKEN}@github.com/sdrelay/automator.git /automator; \
+    else \
+        git clone https://github.com/sdrelay/automator.git /automator; \
+    fi
+WORKDIR /automator
+RUN npm install && npm run build
+
+# Copy your web app and its dependencies
 WORKDIR /
 COPY app/ /app
-
-# Copy and install dependencies for the web server (if package.json exists in root)
 COPY package*.json ./
 RUN npm install
 
-# Copy the startup script
 COPY start_services.sh /start_services.sh
 RUN chmod +x /start_services.sh
 
-# Expose ports (web and SSH)
 EXPOSE 10000 22
 
 CMD ["/start_services.sh"]
