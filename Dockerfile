@@ -1,6 +1,7 @@
 FROM alpine:latest
 
 ARG GITHUB_TOKEN
+ARG GEMINI_API_KEY
 
 RUN apk add --no-cache \
     bash git curl openssh nodejs npm screen nano
@@ -28,8 +29,14 @@ RUN if [ -n "$GITHUB_TOKEN" ]; then \
     else \
         git clone https://github.com/sdrelay/automator.git /automator; \
     fi
+    
 WORKDIR /automator
-RUN npm install && npm run build
+RUN npm install && \
+    if [ -n "$GEMINI_API_KEY" ]; then \
+        VITE_GEMINI_API_KEY=$GEMINI_API_KEY npm run build; \
+    else \
+        npm run build; \
+    fi
 
 # Install a global static file server
 RUN npm install -g serve
