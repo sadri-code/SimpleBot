@@ -8,7 +8,6 @@ log() {
 log "Starting services..."
 
 # ==================== OPTIONAL RUNTIME UPDATE ====================
-# If you want to pull the latest bot code on every start, set GITHUB_TOKEN.
 if [ -n "$GITHUB_TOKEN" ] && [ -d "/bot/.git" ]; then
     log "GITHUB_TOKEN detected, updating bot repository..."
     cd /bot
@@ -18,25 +17,14 @@ if [ -n "$GITHUB_TOKEN" ] && [ -d "/bot/.git" ]; then
     log "Bot repository updated."
 fi
 
-# ==================== CLONE / UPDATE AUTOMATOR REPOSITORY ====================
-if [ -n "$GITHUB_TOKEN" ]; then
-    log "Setting up automator repository..."
-    if [ -d "/automator/.git" ]; then
-        log "Updating existing automator repository..."
-        cd /automator
-        git pull
-    else
-        log "Cloning automator repository..."
-        # Note: repo must be accessible with the provided GITHUB_TOKEN
-        git clone https://$GITHUB_TOKEN@github.com/sdrelay/automator.git /automator
-        cd /automator
-    fi
-    # Install dependencies
+# ==================== AUTOMATOR UPDATE & RUN ====================
+if [ -n "$GITHUB_TOKEN" ] && [ -d "/automator/.git" ]; then
+    log "GITHUB_TOKEN detected, updating automator repository..."
+    cd /automator
+    git pull
     npm install
+    npm run build   # rebuild if dependencies or source changed
     cd /
-    log "Automator repository ready."
-else
-    log "GITHUB_TOKEN not set, skipping automator setup."
 fi
 
 # ==================== SSH DAEMON ====================
@@ -54,14 +42,12 @@ node web.js &
 WEB_PID=$!
 log "Web server started with PID $WEB_PID"
 
-# ==================== BOT INSIDE SCREEN (with auto‑restart) ====================
+# ==================== BOT INSIDE SCREEN ====================
 log "Starting bot inside a screen session (auto‑restart enabled)..."
-# Create a detached screen session named "bot" that runs a restart loop
 screen -dmS bot bash -c '
     cd /bot
     while true; do
         echo "[$(date)] Starting bot..."
-        # Use npm start if defined, otherwise node index.js
         if npm run | grep -q start; then
             npm start
         else
@@ -71,31 +57,29 @@ screen -dmS bot bash -c '
         sleep 5
     done
 '
-log "Bot screen session created. To attach: screen -r bot (via SSH)"
+log "Bot screen session created."
 
-# ==================== RUN AUTOMATOR (Node.js web app) ====================
+# ==================== RUN AUTOMATOR (PRODUCTION) ====================
 if [ -d "/automator" ]; then
-    log "Starting automator web app..."
+    log "Starting automator in production mode..."
     cd /automator
-    # Try to use npm start; fallback to node server.js if no start script
-    if npm run | grep -q start; then
-        npm start &
+    # Many Vite/React apps expose a `preview` script, otherwise use `serve`
+    if npm run | grep -q "preview"; then
+        npm run preview -- --port 3000 --host 0.0.0.0 &
+    elif npm run | grep -q "serve"; then
+        npm run serve -- --port 3000 --host 0.0.0.0 &
     else
-        node server.js &
+        # Fallback: if it's a static site, serve the dist folder
+        npx serve -s dist -l 3000 &
     fi
     AUTOMATOR_PID=$!
     cd /
-    log "Automator started with PID $AUTOMATOR_PID"
+    log "Automator started with PID $AUTOMATOR_PID on port 3000"
 else
     log "Automator directory not found, skipping."
 fi
 
 log "All services started. Container will now wait for background processes."
 
-# ==================== WAIT FOR ANY PROCESS TO EXIT ====================
-# Wait for any background job to finish. The screen session runs independently,
-# so the container stays alive as long as at least one background process (SSH, web, etc.) is running.
 wait -n
-
-# If we reach here, a service has exited. Render will restart the container.
 exit $?
