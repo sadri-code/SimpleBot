@@ -31,6 +31,9 @@ RUN if [ -n "$GITHUB_TOKEN" ]; then \
 WORKDIR /automator
 RUN npm install && npm run build
 
+# Install a global static file server
+RUN npm install -g serve
+
 # Copy your web app and its dependencies
 WORKDIR /
 COPY app/ /app
