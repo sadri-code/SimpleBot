@@ -31,7 +31,7 @@ RUN if [ -n "$GITHUB_TOKEN" ]; then \
     
 WORKDIR /automator
 RUN npm install && npm run build
-RUN npm install -g serve
+RUN npm install -g tsx
 
 # Copy your web app and its dependencies
 WORKDIR /
