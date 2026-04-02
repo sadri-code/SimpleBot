@@ -24,13 +24,8 @@ screen -dmS bot bash -c '
     done
 '
 
-# Automator (foreground)
-if [ -d "/automator" ]; then
-    log "Starting automator on port ${PORT:-10000}..."
-    cd /automator
-    # Use npm start (assumes package.json defines "start" script)
-    exec npm run start
-else
-    log "ERROR: /automator not found"
-    exit 1
-fi
+# Start Automator in foreground
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting automator on port ${PORT:-10000}..."
+cd /automator
+# Use tsx directly to be safe
+npx tsx server.ts
