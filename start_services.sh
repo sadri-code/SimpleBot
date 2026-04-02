@@ -37,11 +37,21 @@ if [ -d "/automator" ]; then
     log "Starting automator backend in foreground (using PORT=${PORT:-10000})..."
     cd /automator
     
-    # Use the compiled output (your Dockerfile already runs npm run build)
-    # Fallback to tsx if dist doesn't exist
+    # Show what files exist (debug)
+    log "Contents of /automator:"
+    ls -la
+    log "Contents of /automator/dist (if exists):"
+    ls -la dist 2>/dev/null || echo "dist directory not found"
+    
+    # Try to run the compiled output, or fallback to tsx
     if [ -f "dist/server.js" ]; then
+        log "Running node dist/server.js"
         exec node dist/server.js
+    elif [ -f "dist/index.js" ]; then
+        log "Running node dist/index.js"
+        exec node dist/index.js
     else
+        log "No compiled output found, running with tsx"
         exec npx tsx server.ts
     fi
 else
