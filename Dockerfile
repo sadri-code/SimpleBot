@@ -19,7 +19,7 @@ RUN if [ -n "$GITHUB_TOKEN" ]; then \
         git clone https://github.com/sdrelay/Relay.git /bot; \
     fi
 WORKDIR /bot
-RUN npm install
+RUN npm install && npm update --save || true
 
 # Clone, install, and BUILD automator
 WORKDIR /
@@ -30,9 +30,8 @@ RUN if [ -n "$GITHUB_TOKEN" ]; then \
     fi
 
 WORKDIR /automator
-RUN npm install && \
-    npm run build
-RUN npm install -g tsx
+RUN npm install && npm update --save || true
+RUN npm run build
 
 # Copy startup script
 COPY start_services.sh /start_services.sh
