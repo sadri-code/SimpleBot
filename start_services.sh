@@ -35,7 +35,7 @@ if [ -f /usr/sbin/sshd ]; then
     log "SSH daemon started with PID $SSHD_PID"
 fi
 
-# ==================== BOT INSIDE SCREEN ====================
+# ==================== BOT INSIDE SCREEN (auto‑restart) ====================
 log "Starting bot inside a screen session (auto‑restart enabled)..."
 screen -dmS bot bash -c '
     cd /bot
@@ -50,24 +50,21 @@ screen -dmS bot bash -c '
         sleep 5
     done
 '
-log "Bot screen session created."
+log "Bot screen session created (name: bot)."
 
-# ==================== RUN AUTOMATOR BACKEND ON PORT 10000 ====================
+# ==================== AUTOMATOR INSIDE SCREEN (auto‑restart) ====================
 if [ -d "/automator" ]; then
-    log "Starting automator backend on port 10000..."
-    cd /automator
-    NODE_ENV=production PORT=10000 tsx server.ts &
-    AUTOMATOR_PID=$!
-    cd /
-    log "Automator backend started with PID $AUTOMATOR_PID"
-
-    # Check if it's listening
-    sleep 5
-    if netstat -tulpn 2>/dev/null | grep -q ":10000.*LISTEN"; then
-        log "✅ Automator backend is listening on port 10000"
-    else
-        log "❌ Automator backend is NOT listening on port 10000"
-    fi
+    log "Starting automator inside a screen session (auto‑restart enabled) on port 10000..."
+    screen -dmS automator bash -c '
+        cd /automator
+        while true; do
+            echo "[$(date)] Starting automator backend..."
+            NODE_ENV=production PORT=10000 tsx server.ts
+            echo "[$(date)] Automator stopped. Restarting in 5 seconds..."
+            sleep 5
+        done
+    '
+    log "Automator screen session created (name: automator)."
 fi
 
 log "All services started. Container will now wait for background processes."
