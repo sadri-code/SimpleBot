@@ -42,9 +42,10 @@ RUN if [ -n "$GITHUB_TOKEN" ]; then \
     git clone https://github.com/sdrelay/automator.git . ; \
     fi && \
     npm install && \
-    # FIX: Install tsx and force the start script to use it
+    # Install tsx globally to handle the .ts server file
     npm install -g tsx && \
-    sed -i 's/node server.ts/tsx server.ts/g' package.json
+    # CRITICAL: Build the frontend so the 'dist' folder exists
+    npm run build
 
 # Startup script
 COPY start_services.sh /start_services.sh
