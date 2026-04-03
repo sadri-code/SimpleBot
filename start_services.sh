@@ -2,17 +2,24 @@
 echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting services..."
 
 # 1. Start SSH
+mkdir -p /var/run/sshd
 /usr/sbin/sshd
 
 # 2. Start Bot in background
-cd /bot
-screen -dmS bot npm start
+if [ -d "/bot" ]; then
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting bot..."
+    cd /bot
+    screen -dmS bot npm start
+fi
 
 # 3. Start Automator in background on port 3000
-cd /automator
-export PORT=3000
-echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting automator on internal port 3000..."
-screen -dmS automator npx tsx server.ts
+if [ -d "/automator" ]; then
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting automator on internal port 3000..."
+    cd /automator
+    export PORT=3000
+    # Use tsx to run the TypeScript server file directly
+    screen -dmS automator npx tsx server.ts
+fi
 
 # 4. Start Nginx in foreground on port 10000
 echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting Nginx dummy proxy on port 10000..."
