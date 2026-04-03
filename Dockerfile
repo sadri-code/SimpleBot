@@ -1,7 +1,7 @@
 # Use Node 20 Bullseye (Debian) for OCR compatibility
 FROM node:20-bullseye
 
-# Install system dependencies for OCR and SSH
+# Install system dependencies for OCR, SSH, and Nginx
 RUN apt-get update && apt-get install -y \
     libgomp1 \
     libgl1-mesa-glx \
@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     openssh-server \
     screen \
+    nginx \
     && rm -rf /var/lib/apt/lists/*
 
 # Setup SSH
@@ -21,6 +22,9 @@ RUN mkdir /var/run/sshd && \
     echo 'root:SecurePass123' | chpasswd && \
     sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
     ssh-keygen -A
+
+# Setup Nginx Proxy
+COPY nginx.conf /etc/nginx/sites-available/default
 
 # Build argument for private repo
 ARG GITHUB_TOKEN
@@ -42,14 +46,17 @@ RUN if [ -n "$GITHUB_TOKEN" ]; then \
     git clone https://github.com/sdrelay/automator.git . ; \
     fi && \
     npm install && \
-    # Install tsx globally to handle the .ts server file
     npm install -g tsx && \
-    # CRITICAL: Build the frontend so the 'dist' folder exists
     npm run build
+
+# Set environment to production
+ENV NODE_ENV=production
 
 # Startup script
 COPY start_services.sh /start_services.sh
 RUN chmod +x /start_services.sh
 
+# Expose Render's port and SSH
 EXPOSE 10000 22
+
 CMD ["/start_services.sh"]
