@@ -1,31 +1,20 @@
 #!/bin/bash
-set -e
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting services..."
 
-log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
-}
+# 1. Start SSH
+/usr/sbin/sshd
 
-log "Starting services..."
+# 2. Start Bot in background
+cd /bot
+screen -dmS bot npm start
 
-# SSH daemon (background)
-if [ -f /usr/sbin/sshd ]; then
-    log "Starting SSH daemon..."
-    /usr/sbin/sshd -D &
-fi
-
-# Bot inside screen (background)
-log "Starting bot..."
-screen -dmS bot bash -c '
-    cd /bot
-    while true; do
-        echo "[$(date)] Starting bot..."
-        npm start || node index.js
-        sleep 5
-    done
-'
-
-# Start Automator in foreground
-echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting automator on port ${PORT:-10000}..."
+# 3. Start Automator in background on port 3000
 cd /automator
-# Use tsx directly to be safe
-npx tsx server.ts
+export PORT=3000
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting automator on internal port 3000..."
+screen -dmS automator npx tsx server.ts
+
+# 4. Start Nginx in foreground on port 10000
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting Nginx dummy proxy on port 10000..."
+# Remove default nginx startup to run in foreground
+nginx -g "daemon off;"
