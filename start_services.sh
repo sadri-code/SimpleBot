@@ -5,9 +5,6 @@ echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting services..."
 mkdir -p /var/run/sshd
 /usr/sbin/sshd
 
-# Remove default nginx startup to run in foreground
-nginx -g "daemon off;"
-
 # 2. Start Bot in background
 if [ -d "/bot" ]; then
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting bot..."
@@ -23,3 +20,8 @@ if [ -d "/automator" ]; then
     # Use tsx to run the TypeScript server file directly
     screen -dmS automator npx tsx server.ts
 fi
+
+sleep 10
+
+# Remove default nginx startup to run in foreground
+nginx -g "daemon off;"
