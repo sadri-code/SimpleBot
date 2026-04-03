@@ -21,7 +21,8 @@ if [ -d "/automator" ]; then
     screen -dmS automator npx tsx server.ts
 fi
 
-# 4. Start Nginx in foreground on port 10000
-echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting Nginx dummy proxy on port 10000..."
+# Wait 5 seconds for the app to boot
+sleep 5
+
 # Remove default nginx startup to run in foreground
 nginx -g "daemon off;"
