@@ -46,9 +46,9 @@ RUN if [ -n "$GITHUB_TOKEN" ]; then \
     git clone https://github.com/sdrelay/automator.git . ; \
     fi && \
     npm install && \
+    find /automator/node_modules -name "load-bitmap-font.ts" -exec sed -i 's/import xmlPackage from "simple-xml-to-json";/import * as xmlPackage from "simple-xml-to-json";/' {} \; && \
     npm install -g tsx && \
-    npm run build && \
-    find /automator/node_modules -name "load-bitmap-font.ts" -exec sed -i 's/import xmlPackage from "simple-xml-to-json";/import * as xmlPackage from "simple-xml-to-json";/' {} \;
+    npm run build
 
 # Set environment to production
 ENV NODE_ENV=production
