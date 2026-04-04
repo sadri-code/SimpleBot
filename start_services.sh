@@ -4,23 +4,45 @@ log() {
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
 }
 
-# ============================================
-# Helper: restart a screen session
-# ============================================
-restart_screen() {
-    local session_name=$1
-    local workdir=$2
-    local command=$3
+# PID file for automator
+AUTOMATOR_PID_FILE="/tmp/automator.pid"
 
-    if screen -list | grep -q "\.${session_name}"; then
-        log "Stopping existing screen session: $session_name"
-        screen -S "$session_name" -X quit
-        sleep 2
+# ============================================
+# Start automator as background process
+# ============================================
+start_automator() {
+    cd /automator || return 1
+    export PORT=3000
+
+    # Kill existing process if any
+    if [ -f "$AUTOMATOR_PID_FILE" ]; then
+        local old_pid=$(cat "$AUTOMATOR_PID_FILE")
+        kill -0 "$old_pid" 2>/dev/null && kill "$old_pid" && sleep 2
     fi
 
-    cd "$workdir"
-    screen -dmS "$session_name" $command
-    log "Started screen session: $session_name -> $command"
+    # Use stdbuf to disable buffering (ensures logs appear instantly)
+    if [ -f "dist/server.js" ]; then
+        stdbuf -oL -eL node dist/server.js &
+    else
+        stdbuf -oL -eL npx tsx server.ts &
+    fi
+
+    local new_pid=$!
+    echo "$new_pid" > "$AUTOMATOR_PID_FILE"
+    log "Automator started with PID $new_pid"
+}
+
+# ============================================
+# Restart bot screen session (unchanged)
+# ============================================
+restart_bot_screen() {
+    if screen -list | grep -q "\.bot"; then
+        screen -S bot -X quit
+        sleep 2
+    fi
+    cd /bot
+    screen -dmS bot npm start
+    log "Bot screen restarted"
 }
 
 # ============================================
@@ -49,7 +71,7 @@ git_sync_daemon() {
                     MD5_AFTER=$(md5sum package.json | cut -d' ' -f1)
                     [ "$MD5_BEFORE" != "$MD5_AFTER" ] && log "[Daemon] npm install completed"
                 fi
-                restart_screen "bot" "$REPO_BOT" "npm start"
+                restart_bot_screen
             fi
         fi
 
@@ -72,26 +94,26 @@ git_sync_daemon() {
                     log "[Daemon] Running npm run build"
                     npm run build
                 fi
-                if [ -f "dist/server.js" ]; then
-                    restart_screen "automator" "$REPO_AUTOMATOR" "bash -c 'node dist/server.js 2>&1 | tee -a /tmp/automator.log'"
-                else
-                    restart_screen "automator" "$REPO_AUTOMATOR" "bash -c 'npx tsx server.ts 2>&1 | tee -a /tmp/automator.log'"
-                fi
+                # Restart automator process
+                start_automator
             fi
         fi
 
-        # ---- Health check ----
+        # ---- Health check for automator (restart if dead) ----
+        if [ -f "$AUTOMATOR_PID_FILE" ]; then
+            local pid=$(cat "$AUTOMATOR_PID_FILE")
+            if ! kill -0 "$pid" 2>/dev/null; then
+                log "[Daemon] Automator process died, restarting"
+                start_automator
+            fi
+        else
+            start_automator
+        fi
+
+        # ---- Health check for bot screen ----
         if [ -d "$REPO_BOT" ] && ! screen -list | grep -q "\.bot"; then
             log "[Daemon] Bot screen missing, restarting"
-            restart_screen "bot" "$REPO_BOT" "npm start"
-        fi
-        if [ -d "$REPO_AUTOMATOR" ] && ! screen -list | grep -q "\.automator"; then
-            log "[Daemon] Automator screen missing, restarting"
-            if [ -f "$REPO_AUTOMATOR/dist/server.js" ]; then
-                restart_screen "automator" "$REPO_AUTOMATOR" "bash -c 'node dist/server.js 2>&1 | tee -a /tmp/automator.log'"
-            else
-                restart_screen "automator" "$REPO_AUTOMATOR" "bash -c 'npx tsx server.ts 2>&1 | tee -a /tmp/automator.log'"
-            fi
+            restart_bot_screen
         fi
 
         sleep "$CHECK_INTERVAL"
@@ -117,36 +139,10 @@ if [ -d "/bot" ]; then
     screen -dmS bot npm start
 fi
 
-# 4. Start automator (initial) with logging to file AND tee to stdout via a tail process
+# 4. Start automator (initial) – logs go directly to stdout
 if [ -d "/automator" ]; then
     log "Starting automator on port 3000..."
-    cd /automator
-    export PORT=3000
-
-    # Clear old log
-    > /tmp/automator.log
-
-    # Start the automator inside screen, output goes to log file
-    if [ -f "dist/server.js" ]; then
-        screen -dmS automator bash -c 'node dist/server.js 2>&1 | tee -a /tmp/automator.log'
-    else
-        screen -dmS automator bash -c 'npx tsx server.ts 2>&1 | tee -a /tmp/automator.log'
-    fi
-
-    # Give it a moment to start
-    sleep 2
-
-    # Start a background tail that prints automator logs to container stdout
-    # This makes 'docker logs -f' show automator output in real time
-    tail -f /tmp/automator.log &
-    TAIL_PID=$!
-    log "Automator log tail started (PID $TAIL_PID). Log file: /tmp/automator.log"
-
-    if screen -list | grep -q "\.automator"; then
-        log "Automator is running (screen session)"
-    else
-        log "ERROR: Automator failed to start. Check /tmp/automator.log"
-    fi
+    start_automator
 fi
 
 # 5. Nginx (foreground – keeps container alive)
