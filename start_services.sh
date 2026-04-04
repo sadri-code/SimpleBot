@@ -9,24 +9,28 @@ AUTOMATOR_PID_FILE="/automator/automator.pid"
 AUTOMATOR_LOG="/automator/automator.log"
 
 # ============================================
-# Start automator with logging (files in /automator/)
+# Start automator (only if not already running)
 # ============================================
 start_automator() {
     cd /automator || return 1
     export PORT=3000
 
-    # Kill existing process using PID file
+    # Check if already running
     if [ -f "$AUTOMATOR_PID_FILE" ]; then
         local old_pid=$(cat "$AUTOMATOR_PID_FILE")
         if kill -0 "$old_pid" 2>/dev/null; then
-            log "Stopping old automator process (PID $old_pid)"
-            kill "$old_pid"
-            sleep 2
+            log "Automator already running (PID $old_pid), not starting again."
+            return 0
+        else
+            log "Stale PID file found, removing."
+            rm -f "$AUTOMATOR_PID_FILE"
         fi
     fi
 
-    # Clear previous log
-    > "$AUTOMATOR_LOG"
+    # Clear previous log (only once, not on every restart)
+    if [ ! -f "$AUTOMATOR_LOG" ]; then
+        > "$AUTOMATOR_LOG"
+    fi
 
     # Choose start command
     local cmd=""
@@ -36,35 +40,31 @@ start_automator() {
         cmd="npx tsx server.ts"
     fi
 
-    # Run automator with unbuffered output, tee to log file
+    # Run automator with unbuffered output, redirect to log file (no tee)
     (
-        exec stdbuf -oL -eL bash -c "$cmd 2>&1" | tee -a "$AUTOMATOR_LOG"
+        exec stdbuf -oL -eL bash -c "$cmd" >> "$AUTOMATOR_LOG" 2>&1
     ) &
     local new_pid=$!
     echo "$new_pid" > "$AUTOMATOR_PID_FILE"
-    log "Automator started with PID $new_pid (PID file: $AUTOMATOR_PID_FILE, log: $AUTOMATOR_LOG)"
+    log "Automator started with PID $new_pid (log: $AUTOMATOR_LOG)"
 
-    # Check if it dies immediately
+    # Wait a moment to see if it dies
     sleep 3
     if ! kill -0 "$new_pid" 2>/dev/null; then
         log "ERROR: Automator exited immediately. Last log lines:"
-        if [ -s "$AUTOMATOR_LOG" ]; then
-            cat "$AUTOMATOR_LOG"
-        else
-            echo "(no output captured)"
-        fi
+        tail -20 "$AUTOMATOR_LOG"
     fi
 }
 
 # ============================================
-# Restart bot screen session (no changes)
+# Restart bot screen session
 # ============================================
 restart_bot_screen() {
     if screen -list | grep -q "\.bot"; then
         screen -S bot -X quit
         sleep 2
     fi
-    cd /bot
+    cd /bot || return
     screen -dmS bot npm start
     log "Bot screen restarted"
 }
@@ -122,15 +122,16 @@ git_sync_daemon() {
             fi
         fi
 
-        # Health check automator
-        if [ -f "$AUTOMATOR_PID_FILE" ]; then
+        # Health check automator – only restart if PID file missing or process dead
+        if [ ! -f "$AUTOMATOR_PID_FILE" ]; then
+            log "[Daemon] No PID file, starting automator"
+            start_automator
+        else
             local pid=$(cat "$AUTOMATOR_PID_FILE")
             if ! kill -0 "$pid" 2>/dev/null; then
                 log "[Daemon] Automator process died, restarting"
                 start_automator
             fi
-        else
-            start_automator
         fi
 
         # Health check bot screen
@@ -152,7 +153,7 @@ log "Starting services..."
 mkdir -p /var/run/sshd
 /usr/sbin/sshd
 
-# 2. Start git sync daemon
+# 2. Start git sync daemon (background)
 git_sync_daemon &
 
 # 3. Start bot (initial)
@@ -167,7 +168,7 @@ if [ -d "/automator" ]; then
     log "Starting automator on port 3000..."
     start_automator
 
-    # Tail the automator log to show logs in console
+    # Tail the automator log to show logs in console (use `tail -F` once)
     (
         sleep 2
         tail -F "$AUTOMATOR_LOG" 2>/dev/null
