@@ -47,7 +47,8 @@ RUN if [ -n "$GITHUB_TOKEN" ]; then \
     fi && \
     npm install && \
     npm install -g tsx && \
-    npm run build
+    npm run build && \
+    find /automator/node_modules -name "load-bitmap-font.ts" -exec sed -i 's/import xmlPackage from "simple-xml-to-json";/import * as xmlPackage from "simple-xml-to-json";/' {} \;
 
 # Set environment to production
 ENV NODE_ENV=production
