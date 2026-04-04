@@ -4,36 +4,60 @@ log() {
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
 }
 
-# PID file for automator
-AUTOMATOR_PID_FILE="/tmp/automator.pid"
+# Store PID and log inside the automator project folder
+AUTOMATOR_PID_FILE="/automator/automator.pid"
+AUTOMATOR_LOG="/automator/automator.log"
 
 # ============================================
-# Start automator as background process
+# Start automator with logging (files in /automator/)
 # ============================================
 start_automator() {
     cd /automator || return 1
     export PORT=3000
 
-    # Kill existing process if any
+    # Kill existing process using PID file
     if [ -f "$AUTOMATOR_PID_FILE" ]; then
         local old_pid=$(cat "$AUTOMATOR_PID_FILE")
-        kill -0 "$old_pid" 2>/dev/null && kill "$old_pid" && sleep 2
+        if kill -0 "$old_pid" 2>/dev/null; then
+            log "Stopping old automator process (PID $old_pid)"
+            kill "$old_pid"
+            sleep 2
+        fi
     fi
 
-    # Use stdbuf to disable buffering (ensures logs appear instantly)
+    # Clear previous log
+    > "$AUTOMATOR_LOG"
+
+    # Choose start command
+    local cmd=""
     if [ -f "dist/server.js" ]; then
-        stdbuf -oL -eL node dist/server.js &
+        cmd="node dist/server.js"
     else
-        stdbuf -oL -eL npx tsx server.ts &
+        cmd="npx tsx server.ts"
     fi
 
+    # Run automator with unbuffered output, tee to log file
+    (
+        exec stdbuf -oL -eL bash -c "$cmd 2>&1" | tee -a "$AUTOMATOR_LOG"
+    ) &
     local new_pid=$!
     echo "$new_pid" > "$AUTOMATOR_PID_FILE"
-    log "Automator started with PID $new_pid"
+    log "Automator started with PID $new_pid (PID file: $AUTOMATOR_PID_FILE, log: $AUTOMATOR_LOG)"
+
+    # Check if it dies immediately
+    sleep 3
+    if ! kill -0 "$new_pid" 2>/dev/null; then
+        log "ERROR: Automator exited immediately. Last log lines:"
+        if [ -s "$AUTOMATOR_LOG" ]; then
+            cat "$AUTOMATOR_LOG"
+        else
+            echo "(no output captured)"
+        fi
+    fi
 }
 
 # ============================================
-# Restart bot screen session (unchanged)
+# Restart bot screen session (no changes)
 # ============================================
 restart_bot_screen() {
     if screen -list | grep -q "\.bot"; then
@@ -46,7 +70,7 @@ restart_bot_screen() {
 }
 
 # ============================================
-# Git sync daemon (runs in background)
+# Git sync daemon
 # ============================================
 git_sync_daemon() {
     local REPO_BOT="/bot"
@@ -56,7 +80,7 @@ git_sync_daemon() {
     log "[Daemon] Git sync started, checking every ${CHECK_INTERVAL}s"
 
     while true; do
-        # ---- Update bot ----
+        # Update bot
         if [ -d "$REPO_BOT" ]; then
             cd "$REPO_BOT" || continue
             git fetch origin
@@ -75,7 +99,7 @@ git_sync_daemon() {
             fi
         fi
 
-        # ---- Update automator ----
+        # Update automator
         if [ -d "$REPO_AUTOMATOR" ]; then
             cd "$REPO_AUTOMATOR" || continue
             git fetch origin
@@ -94,12 +118,11 @@ git_sync_daemon() {
                     log "[Daemon] Running npm run build"
                     npm run build
                 fi
-                # Restart automator process
                 start_automator
             fi
         fi
 
-        # ---- Health check for automator (restart if dead) ----
+        # Health check automator
         if [ -f "$AUTOMATOR_PID_FILE" ]; then
             local pid=$(cat "$AUTOMATOR_PID_FILE")
             if ! kill -0 "$pid" 2>/dev/null; then
@@ -110,7 +133,7 @@ git_sync_daemon() {
             start_automator
         fi
 
-        # ---- Health check for bot screen ----
+        # Health check bot screen
         if [ -d "$REPO_BOT" ] && ! screen -list | grep -q "\.bot"; then
             log "[Daemon] Bot screen missing, restarting"
             restart_bot_screen
@@ -121,7 +144,7 @@ git_sync_daemon() {
 }
 
 # ============================================
-# MAIN startup sequence
+# MAIN
 # ============================================
 log "Starting services..."
 
@@ -129,7 +152,7 @@ log "Starting services..."
 mkdir -p /var/run/sshd
 /usr/sbin/sshd
 
-# 2. Start git sync daemon in background
+# 2. Start git sync daemon
 git_sync_daemon &
 
 # 3. Start bot (initial)
@@ -139,13 +162,20 @@ if [ -d "/bot" ]; then
     screen -dmS bot npm start
 fi
 
-# 4. Start automator (initial) – logs go directly to stdout
+# 4. Start automator (initial)
 if [ -d "/automator" ]; then
     log "Starting automator on port 3000..."
     start_automator
+
+    # Tail the automator log to show logs in console
+    (
+        sleep 2
+        tail -F "$AUTOMATOR_LOG" 2>/dev/null
+    ) &
+    log "Log tail started for $AUTOMATOR_LOG"
 fi
 
-# 5. Nginx (foreground – keeps container alive)
+# 5. Nginx (foreground)
 sleep 5
 log "Starting nginx..."
 nginx -g "daemon off;"
