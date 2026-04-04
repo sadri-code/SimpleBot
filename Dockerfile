@@ -56,10 +56,6 @@ ENV NODE_ENV=production
 COPY start_services.sh /start_services.sh
 RUN chmod +x /start_services.sh
 
-# Copy git-sync script
-COPY git-sync.sh /git-sync.sh
-RUN chmod +x /git-sync.sh
-
 # Expose Render's port and SSH
 EXPOSE 10000 22
 
