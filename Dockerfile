@@ -28,7 +28,8 @@ COPY nginx.conf /etc/nginx/sites-available/default
 
 # Build argument for private repo
 ARG GITHUB_TOKEN
-
+ARG DASHBOARD_PASSWORD
+ENV DASHBOARD_PASSWORD=$DASHBOARD_PASSWORD
 # Setup Bot
 WORKDIR /bot
 RUN if [ -n "$GITHUB_TOKEN" ]; then \
