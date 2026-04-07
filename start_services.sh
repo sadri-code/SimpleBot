@@ -75,7 +75,7 @@ restart_bot_screen() {
 git_sync_daemon() {
     local REPO_BOT="/bot"
     local REPO_AUTOMATOR="/automator"
-    local CHECK_INTERVAL=30
+    local CHECK_INTERVAL=1
 
     log "[Daemon] Git sync started, checking every ${CHECK_INTERVAL}s"
 
