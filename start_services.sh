@@ -32,11 +32,16 @@ start_automator() {
         > "$AUTOMATOR_LOG"
     fi
 
-    # Choose start command
+    # Choose start command - UPDATED FOR MODULAR ARCHITECTURE
     local cmd=""
     if [ -f "dist/server.js" ]; then
+        # If there's a build, use it (assuming vite output or similar)
         cmd="node dist/server.js"
+    elif [ -f "server/index.ts" ]; then
+        # NEW STRUCTURE
+        cmd="npx tsx server/index.ts"
     else
+        # Fallback to old name if for some reason it's still there
         cmd="npx tsx server.ts"
     fi
 
