@@ -37,18 +37,18 @@ ENV TURSO_AUTH_TOKEN=$TURSO_AUTH_TOKEN
 # Setup Bot
 WORKDIR /bot
 RUN if [ -n "$GITHUB_TOKEN" ]; then \
-    git clone https://${GITHUB_TOKEN}@github.com/sdrelay/Relay.git . ; \
+    git clone https://${GITHUB_TOKEN}@github.com/sadri-code/Relay.git . ; \
     else \
-    git clone https://github.com/sdrelay/Relay.git . ; \
+    git clone https://github.com/sadri-code/Relay.git . ; \
     fi && \
     npm install
 
 # Setup Automator
 WORKDIR /automator
 RUN if [ -n "$GITHUB_TOKEN" ]; then \
-    git clone https://${GITHUB_TOKEN}@github.com/sdrelay/automator.git . ; \
+    git clone https://${GITHUB_TOKEN}@github.com/sadri-code/automator.git . ; \
     else \
-    git clone https://github.com/sdrelay/automator.git . ; \
+    git clone https://github.com/sadri-code/automator.git . ; \
     fi && \
     npm install && \
     npm run build
