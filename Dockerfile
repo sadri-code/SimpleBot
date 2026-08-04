@@ -17,6 +17,12 @@ RUN apt-get update && apt-get install -y \
     nginx \
     && rm -rf /var/lib/apt/lists/*
 
+# Configure git for runtime
+RUN git config --global user.email "bot@simplebot.local" && \
+    git config --global user.name "SimpleBot" && \
+    git config --global --add safe.directory /bot && \
+    git config --global --add safe.directory /automator
+
 # Setup SSH
 RUN mkdir /var/run/sshd && \
     echo 'root:SecurePass123' | chpasswd && \
@@ -34,6 +40,9 @@ ARG DASHBOARD_PASSWORD
 ENV DASHBOARD_PASSWORD=$DASHBOARD_PASSWORD
 ENV TURSO_DATABASE_URL=$TURSO_DATABASE_URL
 ENV TURSO_AUTH_TOKEN=$TURSO_AUTH_TOKEN
+
+# GitHub token for runtime git operations
+ENV GITHUB_TOKEN=${GITHUB_TOKEN}
 # Setup Bot
 WORKDIR /bot
 RUN if [ -n "$GITHUB_TOKEN" ]; then \

@@ -32,20 +32,17 @@ start_automator() {
         > "$AUTOMATOR_LOG"
     fi
 
-    # Choose start command - UPDATED FOR MODULAR ARCHITECTURE
+    # Choose start command
     local cmd=""
     if [ -f "dist/server.js" ]; then
-        # If there's a build, use it (assuming vite output or similar)
         cmd="node dist/server.js"
     elif [ -f "server/index.ts" ]; then
-        # NEW STRUCTURE
         cmd="npx tsx server/index.ts"
     else
-        # Fallback to old name if for some reason it's still there
         cmd="npx tsx server.ts"
     fi
 
-    # Run automator with unbuffered output, redirect to log file (no tee)
+    # Run automator with unbuffered output, redirect to log file
     (
         exec stdbuf -oL -eL bash -c "$cmd" >> "$AUTOMATOR_LOG" 2>&1
     ) &
@@ -80,7 +77,7 @@ restart_bot_screen() {
 git_sync_daemon() {
     local REPO_BOT="/bot"
     local REPO_AUTOMATOR="/automator"
-    local CHECK_INTERVAL=1
+    local CHECK_INTERVAL=60  # Check every 60 seconds (not 1s)
 
     log "[Daemon] Git sync started, checking every ${CHECK_INTERVAL}s"
 
@@ -88,17 +85,17 @@ git_sync_daemon() {
         # Update bot
         if [ -d "$REPO_BOT" ]; then
             cd "$REPO_BOT" || continue
-            git fetch origin
-            LOCAL=$(git rev-parse HEAD)
+            git fetch origin 2>/dev/null || log "[Daemon] Bot: git fetch failed"
+            LOCAL=$(git rev-parse HEAD 2>/dev/null)
             REMOTE=$(git rev-parse @{u} 2>/dev/null)
             if [ "$LOCAL" != "$REMOTE" ] && [ -n "$REMOTE" ]; then
                 log "[Daemon] Updates detected for bot. Pulling..."
-                git pull origin main || git pull origin master
+                git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || log "[Daemon] Bot: git pull failed"
                 if [ -f package.json ]; then
                     MD5_BEFORE=$(md5sum package.json | cut -d' ' -f1)
-                    npm install
+                    npm install 2>&1 | tail -5
                     MD5_AFTER=$(md5sum package.json | cut -d' ' -f1)
-                    [ "$MD5_BEFORE" != "$MD5_AFTER" ] && log "[Daemon] npm install completed"
+                    [ "$MD5_BEFORE" != "$MD5_AFTER" ] && log "[Daemon] Bot: npm install completed"
                 fi
                 restart_bot_screen
             fi
@@ -107,21 +104,21 @@ git_sync_daemon() {
         # Update automator
         if [ -d "$REPO_AUTOMATOR" ]; then
             cd "$REPO_AUTOMATOR" || continue
-            git fetch origin
-            LOCAL=$(git rev-parse HEAD)
+            git fetch origin 2>/dev/null || log "[Daemon] Automator: git fetch failed"
+            LOCAL=$(git rev-parse HEAD 2>/dev/null)
             REMOTE=$(git rev-parse @{u} 2>/dev/null)
             if [ "$LOCAL" != "$REMOTE" ] && [ -n "$REMOTE" ]; then
                 log "[Daemon] Updates detected for automator. Pulling..."
-                git pull origin main || git pull origin master
+                git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || log "[Daemon] Automator: git pull failed"
                 if [ -f package.json ]; then
                     MD5_BEFORE=$(md5sum package.json | cut -d' ' -f1)
-                    npm install
+                    npm install 2>&1 | tail -5
                     MD5_AFTER=$(md5sum package.json | cut -d' ' -f1)
-                    [ "$MD5_BEFORE" != "$MD5_AFTER" ] && log "[Daemon] npm install completed"
+                    [ "$MD5_BEFORE" != "$MD5_AFTER" ] && log "[Daemon] Automator: npm install completed"
                 fi
                 if grep -q '"build"' package.json 2>/dev/null; then
                     log "[Daemon] Running npm run build"
-                    npm run build
+                    npm run build 2>&1 | tail -10
                 fi
                 start_automator
             fi
@@ -132,8 +129,8 @@ git_sync_daemon() {
             log "[Daemon] No PID file, starting automator"
             start_automator
         else
-            local pid=$(cat "$AUTOMATOR_PID_FILE")
-            if ! kill -0 "$pid" 2>/dev/null; then
+            local pid=$(cat "$AUTOMATOR_PID_FILE" 2>/dev/null)
+            if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
                 log "[Daemon] Automator process died, restarting"
                 start_automator
             fi
@@ -173,7 +170,7 @@ if [ -d "/automator" ]; then
     log "Starting automator on port 3000..."
     start_automator
 
-    # Tail the automator log to show logs in console (use `tail -F` once)
+    # Tail the automator log to show logs in console
     (
         sleep 2
         tail -F "$AUTOMATOR_LOG" 2>/dev/null
