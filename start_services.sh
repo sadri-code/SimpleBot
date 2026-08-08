@@ -33,14 +33,16 @@ start_automator() {
     fi
 
     # Choose start command
-    local cmd=""
-    if [ -f "dist/server.js" ]; then
-        cmd="node dist/server.js"
-    elif [ -f "server/index.ts" ]; then
-        cmd="npx tsx server/index.ts"
-    else
-        cmd="npx tsx server.ts"
-    fi
+        local cmd=""
+        if [ -f "dist/server/index.js" ]; then
+            cmd="node dist/server/index.js"
+        elif [ -f "dist/server.js" ]; then
+            cmd="node dist/server.js"
+        elif [ -f "server/index.ts" ]; then
+            cmd="npx tsx server/index.ts"
+        else
+            cmd="npx tsx server.ts"
+        fi
 
     # Run automator with unbuffered output, redirect to log file
     (
